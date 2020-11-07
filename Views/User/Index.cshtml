@@ -1,0 +1,384 @@
+﻿
+@{
+    ViewBag.Title = "用户管理";
+}
+<style>
+    #dialog {
+        width: 330px;
+        height: 400px;
+        text-align: center;
+        border: 1px solid #000;
+        border-radius: 10px;
+        background: #efefef;
+        display: none;
+        margin: auto;
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: 0;
+        z-index: 1;
+    }
+
+        #dialog label {
+            width: 66px;
+            padding-left: 5px;
+        }
+
+            #dialog label b {
+                color: red;
+            }
+
+        #dialog h3 {
+            text-align: center;
+            padding: 5px 0 5px 0;
+        }
+
+    #signFile {
+        display: none;
+        width: 250px;
+        height: 250px;
+        text-align: center;
+        border: 1px solid #000;
+        border-radius: 10px;
+        background: #fff;
+        margin: auto;
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: 0;
+        z-index: 1;
+    }
+
+    .imgBox {
+        width: 100px;
+        height: 100px;
+        border: 1px solid #000;
+        margin: 5px 5px 5px 5px;
+    }
+
+        .imgBox img {
+            width: 100%;
+            height: 100%;
+        }
+</style>
+
+<h2>用户管理</h2>
+<label>账号名: </label>
+<input id="account" type="text" name="account" value="" />
+<button onclick="Get()">查 询</button>
+<button onclick="IsShowDialog(true)">添 加</button>
+<table width="900" border="1" cellspacing="0">
+    <thead>
+        <tr>
+            <th>用户ID</th>
+            <th>账号</th>
+            <th>姓名</th>
+            <th>年龄</th>
+            <th>邮件</th>
+            <th>身份证号</th>
+            <th>手机号</th>
+            <th>性别</th>
+            <th>地址</th>
+            <th>角色</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody id="tbMain"></tbody>
+</table>
+@* 添加和编辑对话框 *@
+<div id="dialog">
+    <h3 id="title"></h3>
+    <div><label><b>*</b>账号: </label><input id="addAccount" type="text" name="account" placeholder="请输入账号" /></div>
+    <div><label><b>*</b>密码: </label><input id="password" type="password" name="password" placeholder="请输入密码" /></div>
+    <div><label><b>*</b>姓名: </label><input id="userName" type="text" name="name" placeholder="请输入姓名" /></div>
+    <div><label>年龄: </label><input id="age" type="text" name="age" placeholder="请输入年龄" /></div>
+    <div><label>邮件: </label><input id="email" type="email" name="email" placeholder="请输入邮件" /></div>
+    <div><label>身份证号: </label><input id="id_card" type="text" name="id_card" placeholder="请输入身份证号" /></div>
+    <div><label>手机号: </label><input id="phone" type="number" name="phone" placeholder="请输入手机号" /></div>
+    <div>
+        <label>性别: </label>
+        <input type="radio" name="sex" value="0" checked /><label>女</label>
+        <input type="radio" name="sex" value="1" /><label>男</label>
+    </div>
+    <div><label>地址: </label><input id="user_address" type="text" name="user_address" placeholder="请输入地址" /></div>
+    <div>
+        <label><b>*</b>角色: </label>
+        <input type="radio" name="user_group" value="1" checked /><span>技师</span>
+        <input type="radio" name="user_group" value="2" /><span>医生</span>
+        <input type="radio" name="user_group" value="3" /><span>超级管理员</span>
+    </div>
+    <div style="text-align:center"><button onclick="PostPut()">确 认</button> <button onclick="Cancel()">取 消</button></div>
+</div>
+<div id="signFile">
+    <h3>上传电子签名</h3>
+    <div>
+        <input id="file" type="file" name="name" value="" style="padding-left:5px" />
+        <div class="imgBox">
+            <img id="imgFile" />
+        </div>
+        <div style="text-align: left;margin-left:5px">
+            <button onclick="Upload()">上传</button>
+            <button onclick="signFile.style.display='none'">取消</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 初始化数据
+    var reqHttp = new this.XMLHttpRequest();
+
+    var dialog = document.getElementById("dialog");
+    var account = document.getElementById("addAccount");
+    var password = document.getElementById("password");
+    var userName = document.getElementById("userName");
+    var age = document.getElementById("age");
+    var email = document.getElementById("email");
+    var id_card = document.getElementById("id_card");
+    var phone = document.getElementById("phone");
+    var sex = document.getElementsByName("sex");
+    var user_address = document.getElementById("user_address");
+    var user_group = document.getElementsByName("user_group");
+
+    var signFile = document.getElementById("signFile");
+    var imgFile = document.getElementById("imgFile");
+    // 判断是否增加
+    var isAdd = true;
+    var title = document.getElementById("title");
+    var signature = {};
+    // 调用层
+    Get();
+
+    // 方法层
+    // 查询
+    function Get() {
+        var account = document.getElementById("account").value;
+        var tbody = document.getElementById('tbMain');
+        reqHttp.open("Get", "/User/Get?account=" + account, true);
+        reqHttp.send();
+        reqHttp.onreadystatechange = () => {
+            if (reqHttp.readyState == 4 && reqHttp.status == 200) {
+                var res = JSON.parse(reqHttp.response);
+                if (res.state == 0) {
+                    tbody.innerHTML = "";       // 防止数据的叠加
+                    for (var i = 0; i < res.data.length; i++) { //遍历一下json数据
+                        var trow = GetDataRow(res.data[i]); //定义一个方法,返回tr数据
+                        tbody.appendChild(trow);
+                    }
+                } else {
+                    alert(res.msg);
+                }
+            }
+        }
+    }
+    // 增加行数据
+    function GetDataRow(h) {
+        /**
+         * 业务逻辑
+         * 创建行的dom
+         * 创建列的dom
+         * 列的dom设置内容
+         * 将列的dom加入到行的dom中
+         * 返回一个行元素
+         * */
+        var row = document.createElement('tr'); //创建行
+        InsertTd(h.user_id, row);
+        InsertTd(h.account, row);
+        InsertTd(h.name, row);
+        InsertTd(h.age, row);
+        InsertTd(h.email, row);
+        InsertTd(h.id_card, row);
+        InsertTd(h.phone, row);
+        InsertTd(h.sex == 0 ? "女" : "男", row);
+        InsertTd(h.user_address, row);
+        // 1技师、2医生、3管理员
+        InsertTd(GetGroup(h.user_group), row);
+        InsertTd("", row, "修 改,删 除");
+        return row; //返回tr数据
+    }
+    // 动态插入后台数据
+    function InsertTd(atts, row, num) {
+        var idCell = document.createElement('td'); //创建第一列id
+        idCell.innerHTML = atts; //填充数据
+        if (num) {
+            var btnPut = document.createElement("Button");
+            btnPut.innerText = num.split(",")[0];
+            btnPut.setAttribute("onclick", "IsShowDialog(false, this)");
+
+            var btnDel = document.createElement("Button");
+            btnDel.innerText = num.split(",")[1];
+            btnDel.setAttribute("onclick", 'Del(this)');
+            idCell.appendChild(btnPut);
+            idCell.appendChild(btnDel);
+            // 这里是根据单元格的位数来的，导致新增减就要重改动
+            if (row.cells[9].innerText == "医生") {
+                var btnSign = document.createElement("Button");
+                btnSign.innerText = "电子签名";
+                btnSign.setAttribute("onclick", "UserSignate(this)");
+                idCell.appendChild(btnSign);
+            }
+        }
+        row.appendChild(idCell);
+    }
+    // 获取用户组身份
+    function GetGroup(userGroup) {
+        switch (userGroup) {
+            case 1: return "技师";
+            case 2: return "医生";
+            case 3: return "前超级管理员";
+            case 4: return "超级管理员";
+        }
+    }
+    // 展示对话框
+    function IsShowDialog(state, val) {
+        var pwd = document.getElementById("password");
+        account.value = userName.value = sex.value = age.value = id_card.value = password.value = email.value = phone.value = user_address = "";
+        dialog.style.display = "block";
+        // 添加
+        if (state) {
+            title.innerText = "添加用户基本信息";
+            isAdd = true;
+            pwd.style.display = "inline-block";
+            pwd.parentNode.children[0].style.display = "inline-block";
+            document.getElementById("addAccount").removeAttribute("disabled");
+        }
+        else {
+            title.innerText = "编辑用户基本信息";
+            isAdd = false;
+            pwd.style.display = "none";
+            pwd.parentNode.children[0].style.display = "none";
+            document.getElementById("addAccount").setAttribute("disabled", "true");
+            //user_id.value = val.parentNode.parentNode.cells[0].innerText
+            account.value = val.parentNode.parentNode.cells[1].innerText;
+            userName.value = val.parentNode.parentNode.cells[2].innerText;
+            age.value = val.parentNode.parentNode.cells[3].innerText;
+            email.value = val.parentNode.parentNode.cells[4].innerText;
+            id_card.value = val.parentNode.parentNode.cells[5].innerText;
+            phone.value = val.parentNode.parentNode.cells[6].innerText;
+            sex.value = val.parentNode.parentNode.cells[7].innerText;
+            user_address.value = val.parentNode.parentNode.cells[8].innerText;
+            user_group.value = val.parentNode.parentNode.cells[9].innerText;
+
+            if (sex.value == "男") sex[1].checked = true;
+            else sex[0].checked = true;
+
+            if (user_group.value == "技师") user_group[0].checked = true;
+            else if (user_group.value == "医生") user_group[1].checked = true;
+            else user_group[2].checked = true;
+        }
+    }
+    function Cancel() {
+        dialog.style.display = "none";
+    }
+    // 添加
+    function PostPut() {
+        var user_groupIndex;
+        for (var i = 0; i < user_group.length; i++) {
+            if (user_group[i].checked) {
+                user_groupIndex = user_group[i].value;
+            }
+        }
+        var list = {
+            account: account.value,
+            password: password.value,
+            name: userName.value,
+            age: age.value,
+            email: email.value,
+            id_card: id_card.value,
+            phone: phone.value,
+            sex: sex[0].checked ? 0 : 1,
+            user_group: parseInt(user_groupIndex),
+            user_address: user_address.value
+        }
+
+        if (isAdd) {
+            reqHttp.open("Post", "/User/Post", true);
+        } else {
+            reqHttp.open("Put", "/User/Put", true);
+        }
+
+        reqHttp.setRequestHeader("Content-type", "application/json");
+        reqHttp.send(JSON.stringify(list));
+        reqHttp.onreadystatechange = () => {
+            if (reqHttp.readyState == 4 && reqHttp.status == 200) {
+                var res = JSON.parse(reqHttp.response);
+                if (res.state == 0) {
+                    alert(res.msg);
+                    Get();
+                } else {
+                    alert(res.msg);
+                }
+                dialog.style.display = "none";
+            }
+        }
+    }
+    // 删除
+    function Del(row) {
+        /**
+         * 思路就是取表格先获取到当前行，在调用父级去查看同行的数据
+         * */
+        var question = confirm("确定要删除吗?删除之后将再查无此数据");
+        if (question) {
+            var td = row.parentNode.parentNode;
+            reqHttp.open("DELETE", "/User/Delete?userid=" + td.cells[0].innerText, true);
+            reqHttp.send(null);
+            reqHttp.onreadystatechange = () => {
+                if (reqHttp.readyState == 4 && reqHttp.status == 200) {
+                    var res = JSON.parse(reqHttp.response);
+                    if (res.state == 0) {
+                        alert(res.msg);
+                        Get();
+                    } else {
+                        alert(res.msg);
+                    }
+                }
+            }
+        }
+
+    }
+    // 电子签名展示
+    function UserSignate(row) {
+        var td = row.parentNode.parentNode;
+        var doctorId = td.cells[0].innerText;
+        signature = {
+            doctorId: doctorId,
+            signatureFile: ""
+        }
+        reqHttp.open("Get", "/User/GetFile?doctorId=" + doctorId, true);
+        reqHttp.send();
+        reqHttp.onreadystatechange = () => {
+            if (reqHttp.readyState == 4 && reqHttp.status == 200) {
+                var res = JSON.parse(reqHttp.response);
+                if (res.state == 0) {
+                    imgFile.src = res.data;
+                }
+                else {
+                    imgFile.src = "/Assets/errorImg.jpg";
+                }
+            }
+        }
+        signFile.style.display = "block";
+    }
+    // 上传文件
+    function Upload() {
+        var file = document.getElementById("file");
+        reqHttp.open("Post", "/User/UploadPost", true);
+        var form = new FormData();
+        form.append("doctorId", signature.doctorId);
+        form.append("signatureFile", file.files[0].name);
+        form.append("file", file.files[0]);
+        reqHttp.send(form);
+        reqHttp.onreadystatechange = () => {
+            if (reqHttp.readyState == 4 && reqHttp.status == 200) {
+                var res = JSON.parse(reqHttp.response);
+                if (res.state == 0) {
+                    alert(res.msg);
+                } else {
+                    alert(res.msg);
+                }
+                signFile.style.display = "none";
+            }
+        }
+    }
+</script>

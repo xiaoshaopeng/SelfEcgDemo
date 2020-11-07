@@ -1,0 +1,247 @@
+﻿
+@{
+    ViewBag.Title = "Index";
+}
+<style>
+    #can, #canLine, #canBackGround, #canGrid {
+        position: absolute;
+        left: 0;
+        top: 82px;
+        height: 790px;
+    }
+
+    #canLine {
+        width: 1155px;
+        z-index: 2;
+    }
+
+    #can {
+        width: 1150px;
+        z-index: 1;
+    }
+
+    #canGrid {
+        width: 1150px;
+        z-index: 0;
+    }
+
+    #canBackGround {
+        width: 1140px;
+        z-index: -1;
+    }
+</style>
+<h2>Index</h2>
+
+<button onclick="Init()">绘制波形</button>
+<div style="position: relative;">
+    <canvas id="canLine"></canvas>
+    <canvas id="can"></canvas>
+    <canvas id="canGrid"></canvas>
+    <canvas id="canBackGround"></canvas>
+</div>
+
+<script>
+    // 获取画布dom元素
+    var canLine = document.getElementById("canLine");
+    var can = document.getElementById("can");
+    var canGrid = document.getElementById("canGrid");
+    var canBackGround = document.getElementById("canBackGround");
+    // 2d绘画
+    var canLines = canLine.getContext("2d");
+    var cans = can.getContext("2d");
+    var canGrids = canGrid.getContext("2d");
+    var canBackGrounds = canBackGround.getContext("2d");
+
+    // 画布面板颜色，目前为黑色
+    var sys_color_backGround_rgb = 'rgb(255,255,255)';
+    // 每个点的颜色
+    var sys_color_point_rgb = 'rgb(255, 106, 106)';
+    // 网格颜色，目前为红色
+    var sys_color_grid_rgb = 'rgb(255,0,0)'
+
+    // 缩放模式1常规，2放大1倍，3放大2倍数
+    var sys_ScaleMode = 1
+
+    var m_data = new Array();
+    var m_iPosi = new Array();
+    var m_iDelta = new Array();
+    // 接收后台数据用！！！核心
+    var m_leaddata = new Array();
+
+    var origX = new Array();
+    var origY = new Array();
+
+    var curTime = 50;
+
+    var reqHttp = new XMLHttpRequest();
+    reqHttp.open("Get", "/Role/Charts", true);
+    reqHttp.send();
+    reqHttp.onreadystatechange = () => {
+        if (reqHttp.readyState == 4 && reqHttp.status == 200) {
+            var res = JSON.parse(reqHttp.response);
+
+            m_leaddata = res.data;
+            Init();
+
+        }
+    }
+    function Init() {
+
+
+        var m_xOrg = 32;
+        var m_yOrg = 20;
+
+        // 给画线canLine画布注册鼠标向上、向下、离开等事件
+        canLine.addEventListener("mousedown", () => { }, false);
+        canLine.addEventListener("mouseup", () => { }, false);
+        canLine.addEventListener("mousemove", () => { }, false);
+
+        // 遍历12导的数据
+        for (var i = 0; i < 12; i++) {
+            m_data[i] = new Array();
+        }
+        for (var i = 0; i < 12; i++) {
+            m_iPosi[i] = new Array();
+        }
+        for (var i = 0; i < 12; i++) {
+            m_iDelta[i] = new Array();
+        }
+
+        // 为origX和origY初始化
+        for (var i = 0; i < 4; i++) {
+            origX[i] = new Array();
+            origY[i] = new Array();
+        }
+        //
+        for (var lead = 0; lead < 12; lead++) {
+            for (var i = 0; i < 5002; i++) {
+                m_data[lead][i] = 0;
+            }
+            origX[0][lead] = m_xOrg;
+        }
+        for (var i = 0; i < 12; i++) {
+            origY[0][i] = 60 + i * 60;
+        }
+
+        for (var ilead = 0; ilead < 6; ilead++)
+            origX[1][ilead] = m_xOrg;
+        for (var ilead = 6; ilead < 12; ilead++)
+            origX[1][ilead] = m_xOrg + 520;
+
+        for (var i = 0; i < 6; i++) {
+            origY[1][i] = origY[1][i + 6] = 60 + i * 100;
+        }
+
+        origX[2][0] = origX[2][1] = origX[2][2] = m_xOrg;
+        origX[2][3] = origX[2][4] = origX[2][5] = m_xOrg + 252 + 10;
+        origX[2][6] = origX[2][7] = origX[2][8] = m_xOrg + 504 + 10;
+
+        origX[2][9] = origX[2][10] = origX[2][11] = m_xOrg + 756 + 10;
+
+        origY[2][0] = origY[2][3] = origY[2][6] = origY[2][9] = m_yOrg + 100;
+        origY[2][1] = origY[2][4] = origY[2][7] = origY[2][10] = m_yOrg + 300;
+        origY[2][2] = origY[2][5] = origY[2][8] = origY[2][11] = m_yOrg + 500;
+
+        origX[3][0] = origX[3][1] = origX[3][2] = origX[3][12] = m_xOrg;
+        origX[3][3] = origX[3][4] = origX[3][5] = m_xOrg + 252 + 10;
+        origX[3][6] = origX[3][7] = origX[3][8] = m_xOrg + 504 + 10;
+        origX[3][9] = origX[3][10] = origX[3][11] = m_xOrg + 756 + 10;
+
+        origY[3][0] = origY[3][3] = origY[3][6] = origY[3][9] = m_yOrg + 50;
+        origY[3][1] = origY[3][4] = origY[3][7] = origY[3][10] = m_yOrg + 200;
+        origY[3][2] = origY[3][5] = origY[3][8] = origY[3][11] = m_yOrg + 350;
+        origY[3][12] = m_yOrg + 500;
+
+        startDraw();
+    }
+    // 开始绘画波形
+    function startDraw() {
+        DrawBackGround()
+        DrawGrid(canGrids);
+        ShowMoveData(curTime);
+    }
+    // 绘制背景颜色
+    function DrawBackGround() {
+        canBackGrounds.fillStyle = sys_color_backGround_rgb;
+        canBackGrounds.fillRect(0, 0, 1140 * sys_ScaleMode, 650 * sys_ScaleMode);
+    }
+    // 绘制网格
+    function DrawGrid(cans) {
+        var mWidth = 1155;
+        var mHeight = 820;
+
+        canGrid.width = canGrid.width;
+        var theHtimes = mWidth / 20;
+        var theVTimes = mHeight / 20;
+        for (var i = 0; i < theHtimes + 2; i++) {
+            if (i <= theHtimes) {
+                for (var m = 0; m < theVTimes + 1; m++) {
+                    for (var j = 1; j < 5; j++) {
+                        for (var k = 1; k < 5; k++) {
+                            DrawOneLineByColor(cans, i * 20 + 4 * k, 4 * j + m * 20, i * 20 + 4 * k + 0.1, 4 * j + m * 20, sys_color_point_rgb);
+                        }
+                    }
+                }
+            }
+
+            DrawOneLineByColor(cans, i * 20, 0, i * 20, theVTimes * 20, sys_color_grid_rgb);
+        }
+        for (var i = 0; i < theVTimes + 1; i++) {
+            DrawOneLineByColor(cans, 0, i * 20, theHtimes * 20 + 20, i * 20, sys_color_grid_rgb);
+        }
+    }
+    // 绘制一条线、供网格、线数据使用
+    function DrawOneLineByColor(cans, pX1, pY1, pX2, pY2, color) {
+        cans.beginPath();
+        cans.strokeStyle = color;
+        cans.lineCap = "round";
+
+        cans.moveTo(pX1 + 10, pY1 + 10);
+        cans.lineTo(pX2 + 10, pY2 + 10);
+        cans.stroke();
+    }
+    // 展示移动数据
+    function ShowMoveData(time) {
+        document.getElementById("can").width = document.getElementById("can").width;
+        getCurData(time);
+
+        //if (sys_IsScale && sys_mode != 4) {//画放大的图像 一分钟单导 不放大
+        //    DrawModeSingle(cans)
+        //}
+        //else {
+        //    switch (sys_mode) {
+        //        case 1:
+        //            DrawMode12(cans);
+        //            break;
+        //        case 2:
+        //            DrawMode26(cans);
+        //            break;
+        //        case 3:
+        //            DrawMode34(cans);
+        //            break;
+        //        case 4:
+        //            DrawModeOneMinute(cans);
+        //            break;
+        //    }
+        //}
+        //SetLead(cans, sys_mode - 1);
+        //DrawLocator(cans);
+    }
+    // 获取当前的数据
+    function getCurData(curPos) {
+        for (var pos = 0; pos < 5000; pos++) {
+            for (var lead = 0; lead < 2; lead++) {
+
+                m_data[lead][pos] = m_leaddata[lead][curPos * 500 + pos];
+            }
+            m_data[2][pos] = (m_data[1][pos] - m_data[0][pos]);
+            m_data[3][pos] = (1 - (m_data[0][pos] + m_data[1][pos]) >> 1);
+            m_data[4][pos] = (m_data[0][pos] - (m_data[1][pos] >> 1));
+            m_data[5][pos] = (m_data[1][pos] - (m_data[0][pos] >> 1));
+            for (var lead = 6; lead < 12; lead++) {
+                m_data[lead][pos] = m_leaddata[lead - 4][curPos * 500 + pos];
+            }
+        }
+    }
+</script>
+

@@ -1,0 +1,80 @@
+﻿@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title></title>
+    <style>
+        #box {
+            width: 300px;
+            height: 300px;
+            margin: 100px auto;
+        }
+
+            #box label {
+                display: block;
+                width: 60px;
+            }
+
+            #box button {
+                margin-top: 5px;
+            }
+    </style>
+</head>
+<body>
+    <div id="box">
+        <h2>登录界面</h2>
+        <label>用户名</label><input id="account" type="text" value="" /><br />
+        <label>密码</label><input id="password" type="password" value="" /><br />
+        <button onclick="UserLogin()">登录</button>
+    </div>
+</body>
+</html>
+
+<script src="~/Scripts/sha1.js"></script>
+<script>    
+    // 用户登录
+    function UserLogin() {
+        // javascript的写法
+        var account = document.getElementById("account").value;
+        var pwd = document.getElementById("password").value;
+        console.log(pwd);
+        // 请求api
+        var xmlHttp = new XMLHttpRequest();
+        xmlHttp.open("Post", "/Login/UserLogin", true);
+        xmlHttp.setRequestHeader("Content-type", "application/json");
+        xmlHttp.send(JSON.stringify({
+            "account": account,
+            "password": SHA1(pwd).toUpperCase()
+        }));
+        xmlHttp.onreadystatechange = () => {
+            if (xmlHttp.readyState == 4 && xmlHttp.status == 200) {
+                var res = JSON.parse(xmlHttp.responseText);
+                if (res.state == 0) {
+                    alert(res.msg);
+                    window.location.href = "/User/Index";
+                } else {
+                    alert(res.msg);
+                }
+            }
+        }
+
+        // jquery的写法
+        //$.ajax({
+        //    url:"/UserLogin",
+        //    type: "post",
+        //    dataType: JSON,
+        //    data: { username: uname, password: pwd },
+        //    success(res){
+        //        console.log(res);
+        //    },
+        //    error(er) {
+
+        //    }
+        //})
+    }
+</script>
